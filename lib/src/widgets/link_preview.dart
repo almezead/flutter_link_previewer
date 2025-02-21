@@ -165,12 +165,7 @@ class _LinkPreviewState extends State<LinkPreview>
     return InkWell(
       onTap: () => linkUrl != null ? _onOpen(linkUrl) : null,
       child: Container(
-        decoration: BoxDecoration(
-          borderRadius: const BorderRadius.all(Radius.circular(20)),
-                border: Border.all(
-                  color: Colors.black12,
-                  width: 1,
-        )),
+        
         constraints: BoxConstraints(maxWidth: widget.width),
        // padding: withPadding ? padding : null,
         child: Column(
