@@ -1,21 +1,44 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart' hide Element;
-import 'package:flutter_chat_types/flutter_chat_types.dart'
-    show PreviewData, PreviewDataImage;
+import 'package:flutter_chat_core/flutter_chat_core.dart'
+    show LinkPreviewData, ImagePreviewData;
 import 'package:html/dom.dart' show Document, Element;
 import 'package:html/parser.dart' as parser show parse;
-import 'package:http/http.dart' as http show get;
+import 'package:http/http.dart' as http show Request, Client, Response;
+import 'package:punycode/punycode.dart' as puny;
 
 import 'types.dart';
 
 String _calculateUrl(String baseUrl, String? proxy) {
-  if (proxy != null) {
-    return '$proxy$baseUrl';
+  var urlToReturn = baseUrl;
+
+  final domainRegex = RegExp(r'^(?:(http|https|ftp):\/\/)?([^\/?#]+)');
+  final match = domainRegex.firstMatch(baseUrl);
+
+  if (match != null) {
+    final originalDomain = match.group(2)!;
+
+    final labels = originalDomain.split('.');
+    if (labels.length <= 10) {
+      final encodedLabels = labels.map((label) {
+        final isAscii = label.runes.every((r) => r < 128);
+        return isAscii ? label : 'xn--${puny.punycodeEncode(label)}';
+      }).toList();
+
+      final punycodedDomain = encodedLabels.join('.');
+      urlToReturn = baseUrl.replaceFirst(originalDomain, punycodedDomain);
+    }
   }
 
-  return baseUrl;
+  if (proxy != null) {
+    return '$proxy$urlToReturn';
+  }
+
+  return urlToReturn;
 }
 
 String? _getMetaContent(Document document, String propertyValue) {
@@ -29,17 +52,6 @@ String? _getMetaContent(Document document, String propertyValue) {
   );
 
   return element.attributes['content']?.trim();
-}
-
-bool _hasUTF8Charset(Document document) {
-  final emptyElement = Element.tag(null);
-  final meta = document.getElementsByTagName('meta');
-  final element = meta.firstWhere(
-    (e) => e.attributes.containsKey('charset'),
-    orElse: () => emptyElement,
-  );
-  if (element == emptyElement) return true;
-  return element.attributes['charset']!.toLowerCase() == 'utf-8';
 }
 
 String? _getTitle(Document document) {
@@ -133,6 +145,11 @@ Future<Size> _getImageSize(String url) {
   return completer.future;
 }
 
+Future<Size> _getImageSizeFromBytes(Uint8List bytes) async {
+  final image = await decodeImageFromList(bytes);
+  return Size(height: image.height.toDouble(), width: image.width.toDouble());
+}
+
 Future<String> _getBiggestImageUrl(
   List<String> imageUrls,
   String? proxy,
@@ -156,33 +173,63 @@ Future<String> _getBiggestImageUrl(
   return currentUrl;
 }
 
+Future<http.Response?> _getRedirectedResponse(
+  Uri uri, {
+  Map<String, String>? headers,
+  int maxRedirects = 5,
+  Duration timeout = const Duration(seconds: 5),
+  http.Client? client,
+}) async {
+  final httpClient = client ?? http.Client();
+  var redirectCount = 0;
+
+  while (redirectCount < maxRedirects) {
+    final request = http.Request('GET', uri)..followRedirects = false;
+
+    if (headers != null) {
+      request.headers.addAll(headers);
+    }
+
+    final streamedResponse = await httpClient.send(request).timeout(timeout);
+
+    if (streamedResponse.isRedirect &&
+        streamedResponse.headers.containsKey('location')) {
+      uri = uri.resolve(streamedResponse.headers['location']!);
+      redirectCount++;
+      continue;
+    }
+
+    return http.Response.fromStream(streamedResponse);
+  }
+
+  return null;
+}
+
 /// Parses provided text and returns [PreviewData] for the first found link.
-Future<PreviewData> getPreviewData(
+Future<LinkPreviewData?> getLinkPreviewData(
   String text, {
+  Map<String, String>? headers,
   String? proxy,
   Duration? requestTimeout,
   String? userAgent,
 }) async {
-  const previewData = PreviewData();
-
   String? previewDataDescription;
-  PreviewDataImage? previewDataImage;
   String? previewDataTitle;
   String? previewDataUrl;
+  ImagePreviewData? previewDataImage;
+  Size imageSize;
+  String previewDataImageUrl;
 
   try {
     final emailRegexp = RegExp(regexEmail, caseSensitive: false);
     final textWithoutEmails = text
-        .replaceAllMapped(
-          emailRegexp,
-          (match) => '',
-        )
+        .replaceAllMapped(emailRegexp, (match) => '')
         .trim();
-    if (textWithoutEmails.isEmpty) return previewData;
+    if (textWithoutEmails.isEmpty) return null;
 
-    final urlRegexp = RegExp(regexLink, caseSensitive: false);
+    final urlRegexp = RegExp(regexLink, caseSensitive: false, unicode: true);
     final matches = urlRegexp.allMatches(textWithoutEmails);
-    if (matches.isEmpty) return previewData;
+    if (matches.isEmpty) return null;
 
     var url = textWithoutEmails.substring(
       matches.first.start,
@@ -194,28 +241,62 @@ Future<PreviewData> getPreviewData(
     }
     previewDataUrl = _calculateUrl(url, proxy);
     final uri = Uri.parse(previewDataUrl);
-    final response = await http.get(uri, headers: {
+
+    final defaultHeaders = kIsWeb
+        ? {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json',
+            'Accept': '*/*',
+          }
+        : {};
+
+    final effectiveHeaders = <String, String>{
+      ...defaultHeaders,
       'User-Agent': userAgent ?? 'WhatsApp/2',
-    }).timeout(requestTimeout ?? const Duration(seconds: 5));
-    final document = parser.parse(utf8.decode(response.bodyBytes));
+      ...?headers,
+    };
+
+    final response = await _getRedirectedResponse(
+      uri,
+      headers: effectiveHeaders,
+      timeout: requestTimeout ?? const Duration(seconds: 5),
+    );
+
+    if (response == null || response.statusCode != 200) {
+      return null;
+    }
+    url = response.request?.url.toString() ?? url;
 
     final imageRegexp = RegExp(regexImageContentType);
 
     if (imageRegexp.hasMatch(response.headers['content-type'] ?? '')) {
-      final imageSize = await _getImageSize(previewDataUrl);
-      previewDataImage = PreviewDataImage(
-        height: imageSize.height,
-        url: previewDataUrl,
-        width: imageSize.width,
-      );
-      return PreviewData(
-        image: previewDataImage,
+      final imageSize = await _getImageSizeFromBytes(response.bodyBytes);
+      return LinkPreviewData(
         link: previewDataUrl,
+        image: ImagePreviewData(
+          url: previewDataUrl,
+          height: imageSize.height,
+          width: imageSize.width,
+        ),
       );
     }
 
-    if (!_hasUTF8Charset(document)) {
-      return previewData;
+    Document document;
+    try {
+      Encoding encoding;
+      final contentType = response.headers['content-type']?.toLowerCase() ?? '';
+      if (contentType.contains('charset=')) {
+        final charset = contentType.split('charset=')[1].split(';')[0].trim();
+        encoding = Encoding.getByName(charset) ?? utf8;
+        debugPrint('encoding: $encoding');
+      } else {
+        encoding = utf8;
+      }
+
+      document = parser.parse(encoding.decode(response.bodyBytes));
+    } catch (e) {
+      // Always return the url so it's displayed and clickable
+      return LinkPreviewData(link: previewDataUrl, title: previewDataTitle);
     }
 
     final title = _getTitle(document);
@@ -228,36 +309,30 @@ Future<PreviewData> getPreviewData(
       previewDataDescription = description.trim();
     }
 
-    final imageUrls = _getImageUrls(document, url);
+    try {
+      final imageUrls = _getImageUrls(document, url);
 
-    Size imageSize;
-    String imageUrl;
+      if (imageUrls.isNotEmpty) {
+        previewDataImageUrl = imageUrls.length == 1
+            ? _calculateUrl(imageUrls[0], proxy)
+            : await _getBiggestImageUrl(imageUrls, proxy);
 
-    if (imageUrls.isNotEmpty) {
-      imageUrl = imageUrls.length == 1
-          ? _calculateUrl(imageUrls[0], proxy)
-          : await _getBiggestImageUrl(imageUrls, proxy);
-
-      imageSize = await _getImageSize(imageUrl);
-      previewDataImage = PreviewDataImage(
-        height: imageSize.height,
-        url: imageUrl,
-        width: imageSize.width,
-      );
-    }
-    return PreviewData(
-      description: previewDataDescription,
-      image: previewDataImage,
+        imageSize = await _getImageSize(previewDataImageUrl);
+        previewDataImage = ImagePreviewData(
+          url: previewDataImageUrl,
+          width: imageSize.width,
+          height: imageSize.height,
+        );
+      }
+    } catch (_) {}
+    return LinkPreviewData(
       link: previewDataUrl,
       title: previewDataTitle,
+      description: previewDataDescription,
+      image: previewDataImage,
     );
   } catch (e) {
-    return PreviewData(
-      description: previewDataDescription,
-      image: previewDataImage,
-      link: previewDataUrl,
-      title: previewDataTitle,
-    );
+    return null;
   }
 }
 
@@ -269,4 +344,4 @@ const regexImageContentType = r'image\/*';
 
 /// Regex to find all links in the text.
 const regexLink =
-    r'((http|ftp|https):\/\/)?([\w_-]+(?:(?:\.[\w_-]*[a-zA-Z_][\w_-]*)+))([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?[^\.\s]';
+    r'((http|ftp|https):\/\/)?(([\p{L}\p{N}_-]+)(?:(?:\.([\p{L}\p{N}_-]*[\p{L}_][\p{L}\p{N}_-]*))+))([\p{L}\p{N}.,@?^=%&:/~+#-]*[\p{L}\p{N}@?^=%&/~+#-])?[^\.\s]';

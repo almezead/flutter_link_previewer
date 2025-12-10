@@ -1,13 +1,10 @@
-import 'package:meta/meta.dart';
+import 'package:flutter/material.dart';
 
 /// Represents the size object.
 @immutable
 class Size {
   /// Creates [Size] from width and height.
-  const Size({
-    required this.height,
-    required this.width,
-  });
+  const Size({required this.height, required this.width});
 
   /// Height.
   final double height;

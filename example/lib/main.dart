@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_chat_types/flutter_chat_types.dart' show PreviewData;
+//import 'package:flutter_chat_types/flutter_chat_types.dart' show PreviewData;
 import 'package:flutter_link_previewer/flutter_link_previewer.dart';
+import 'package:flutter_chat_core/flutter_chat_core.dart' show LinkPreviewData;
 
 void main() {
   runApp(const MyApp());
@@ -25,8 +26,8 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  Map<String, PreviewData> datas = {};
-
+ // Map<String, PreviewData> datas = {};
+  LinkPreviewData? _linkPreviewData;
   List<String> get urls => const [
         'github.com/flyerhq',
         'https://u24.gov.ua',
@@ -63,18 +64,29 @@ class _MyHomePageState extends State<MyHomePage> {
                 Radius.circular(20),
               ),
               child: LinkPreview(
-                enableAnimation: true,
-                onPreviewDataFetched: (data) {
+                // The text that should be parsed to find the first URL
+                text:  urls[index],
+                // Pass the cached preview data to avoid re-fetching
+                linkPreviewData: _linkPreviewData,
+                // Callback to store the fetched preview data
+                onLinkPreviewDataFetched: (data) {
                   setState(() {
-                    datas = {
-                      ...datas,
-                      urls[index]: data,
-                    };
+                    _linkPreviewData = data;
                   });
                 },
-                previewData: datas[urls[index]],
-                text: urls[index],
-                width: MediaQuery.of(context).size.width,
+                // For a chat bubble, you would pass the message text here
+                // to align the preview with the text bubble.
+               /// parentContent: widget.message,
+                // Customization example
+                borderRadius: 4,
+                sideBorderColor: Colors.white,
+                sideBorderWidth: 4,
+                insidePadding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+                outsidePadding: const EdgeInsets.symmetric(vertical: 4),
+                titleTextStyle: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
               ),
             ),
           ),

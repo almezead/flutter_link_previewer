@@ -1,111 +1,150 @@
-import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_chat_types/flutter_chat_types.dart' show PreviewData;
+import 'package:flutter_chat_core/flutter_chat_core.dart' show LinkPreviewData;
 import 'package:url_launcher/url_launcher.dart';
+import 'utils.dart';
 
-import '../utils.dart' show getPreviewData;
-
-/// A widget that renders text with highlighted links.
-/// Eventually unwraps to the full preview of the first found link
-/// if the parsing was successful.
-@immutable
+/// A widget that displays a preview of a URL.
+///
+/// It can be used to display a preview of a URL in a chat message,
+/// or in any other context where you want to display a preview of a URL.
+///
+/// The widget can be customized with a variety of parameters,
+/// including the background color, border radius, and text styles.
+///
+/// It also supports animations, and can be disabled if desired.
 class LinkPreview extends StatefulWidget {
-  /// Creates [LinkPreview].
+  /// Creates a link preview widget.
   const LinkPreview({
     super.key,
-    this.animationDuration,
-    this.corsProxy,
-    this.enableAnimation = false,
-    this.header,
-    this.headerStyle,
-    this.imageBuilder,
-    this.linkStyle,
-    this.metadataTextStyle,
-    this.metadataTitleStyle,
-    this.onLinkPressed,
-    required this.onPreviewDataFetched,
-    this.openOnPreviewImageTap = false,
-    this.openOnPreviewTitleTap = false,
-    this.padding,
-    this.previewBuilder,
-    required this.previewData,
-    this.requestTimeout,
+    required this.onLinkPreviewDataFetched,
+    this.linkPreviewData,
     required this.text,
-    this.textStyle,
-    this.textWidget,
+    this.minWidth = 200,
+    this.maxWidth = 400,
+    this.squareImageSize = 80,
+    this.parentContent,
+    this.onTap,
+    this.corsProxy,
+    this.headers,
+    this.requestTimeout = const Duration(seconds: 5),
     this.userAgent,
-    required this.width,
+    this.hideTitle = false,
+    this.hideDescription = false,
+    this.hideImage = false,
+    this.forcedLayout,
+    this.backgroundColor,
+    this.sideBorderColor,
+    this.sideBorderWidth = 4,
+    this.borderRadius = 4,
+    this.insidePadding = const EdgeInsets.fromLTRB(8, 4, 4, 4),
+    this.outsidePadding = const EdgeInsets.symmetric(vertical: 2),
+    this.titleTextStyle,
+    this.maxTitleLines = 2,
+    this.descriptionTextStyle,
+    this.maxDescriptionLines = 3,
+    this.animationDuration = const Duration(milliseconds: 250),
+    this.enableAnimation = true,
+    this.imageBuilder,
+    this.gap = 4,
   });
 
-  /// Expand animation duration.
-  final Duration? animationDuration;
+  /// A callback that is called when the link preview data is fetched.
+  final Function(LinkPreviewData) onLinkPreviewDataFetched;
 
-  /// CORS proxy to make more previews work on web. Not tested.
-  final String? corsProxy;
+  /// The link preview data to display. If this is null, the widget will
+  /// fetch the data from the URL in the [text] parameter.
+  final LinkPreviewData? linkPreviewData;
 
-  /// Enables expand animation. Default value is false.
-  final bool? enableAnimation;
-
-  /// Custom header above provided text.
-  final String? header;
-
-  /// Style of the custom header.
-  final TextStyle? headerStyle;
-
-  /// Function that allows you to build a custom image.
-  final Widget Function(String)? imageBuilder;
-
-  /// Style of highlighted links in the text.
-  final TextStyle? linkStyle;
-
-  /// Style of preview's description.
-  final TextStyle? metadataTextStyle;
-
-  /// Style of preview's title.
-  final TextStyle? metadataTitleStyle;
-
-  /// Custom link press handler.
-  final void Function(String)? onLinkPressed;
-
-  /// Callback which is called when [PreviewData] was successfully parsed.
-  /// Use it to save [PreviewData] to the state and pass it back
-  /// to the [LinkPreview.previewData] so the [LinkPreview] would not fetch
-  /// preview data again.
-  final void Function(PreviewData) onPreviewDataFetched;
-
-  /// Open the link when the link preview image is tapped. Defaults to false.
-  final bool openOnPreviewImageTap;
-
-  /// Open the link when the link preview title/description is tapped. Defaults to false.
-  final bool openOnPreviewTitleTap;
-
-  /// Padding around initial text widget.
-  final EdgeInsets? padding;
-
-  /// Function that allows you to build a custom link preview.
-  final Widget Function(BuildContext, PreviewData)? previewBuilder;
-
-  /// Pass saved [PreviewData] here so [LinkPreview] would not fetch preview
-  /// data again.
-  final PreviewData? previewData;
-
-  /// Request timeout after which the request will be cancelled. Defaults to 5 seconds.
-  final Duration? requestTimeout;
-
-  /// Text used for parsing.
+  /// The text to parse for a URL.
   final String text;
 
-  /// Style of the provided text.
-  final TextStyle? textStyle;
+  /// The minimum width of the preview.
+  final double minWidth;
 
-  /// Widget to display above the preview. If null, defaults to a linkified [text].
-  final Widget? textWidget;
+  /// The maximum width of the preview.
+  final double maxWidth;
 
-  /// User agent to send as GET header when requesting link preview url.
+  /// The size of the image, if it is a square.
+  final double squareImageSize;
+
+  /// The content of the parent widget, typically the text of a message bubble.
+  ///
+  /// This is used to calculate a minimum width for the preview, ensuring it
+  /// aligns visually with other content. The preview's width will be at least
+  /// the width of this text. This can cause the preview to be wider than
+  /// [maxWidth], but it will still be constrained by the available layout space.
+  final String? parentContent;
+
+  /// A callback that is called when the preview is tapped.
+  final void Function(String)? onTap;
+
+  /// The CORS proxy to use for fetching the preview data.
+  final String? corsProxy;
+
+  /// The headers to use for fetching the preview data.
+  final Map<String, String>? headers;
+
+  /// The timeout for the request to fetch the preview data.
+  final Duration? requestTimeout;
+
+  /// The user agent to use for fetching the preview data.
   final String? userAgent;
 
-  /// Width of the [LinkPreview] widget.
-  final double width;
+  /// Whether to hide the title of the preview.
+  final bool hideTitle;
+
+  /// Whether to hide the description of the preview.
+  final bool hideDescription;
+
+  /// Whether to hide the image of the preview.
+  final bool hideImage;
+
+  /// The forced layout of the image.
+  final LinkPreviewImagePosition? forcedLayout;
+
+  /// The background color of the preview.
+  final Color? backgroundColor;
+
+  /// The color of the side border.
+  final Color? sideBorderColor;
+
+  /// The width of the side border.
+  final double sideBorderWidth;
+
+  /// The border radius of the preview.
+  final double borderRadius;
+
+  /// The padding inside the preview.
+  final EdgeInsets insidePadding;
+
+  /// The padding outside the preview.
+  final EdgeInsets outsidePadding;
+
+  /// The text style of the title.
+  final TextStyle? titleTextStyle;
+
+  /// The maximum number of lines for the title.
+  final int maxTitleLines;
+
+  /// The text style of the description.
+  final TextStyle? descriptionTextStyle;
+
+  /// The maximum number of lines for the description.
+  final int maxDescriptionLines;
+
+  /// The duration of the animation.
+  final Duration? animationDuration;
+
+  /// Whether to enable the animation.
+  final bool enableAnimation;
+
+  /// A builder for the image widget.
+  final Widget Function(String)? imageBuilder;
+
+  /// The gap between the elements of the preview.
+  final double gap;
 
   @override
   State<LinkPreview> createState() => _LinkPreviewState();
@@ -113,202 +152,49 @@ class LinkPreview extends StatefulWidget {
 
 class _LinkPreviewState extends State<LinkPreview>
     with SingleTickerProviderStateMixin {
-  bool isFetchingPreviewData = false;
-  bool shouldAnimate = false;
-
-  late final Animation<double> _animation;
   late final AnimationController _controller;
+  late final Animation<double> _animation;
+  LinkPreviewData? _previewData;
 
   @override
   void initState() {
     super.initState();
-
     _controller = AnimationController(
-      duration: widget.animationDuration ?? const Duration(milliseconds: 300),
+      duration: widget.animationDuration,
       vsync: this,
     );
-
     _animation = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeOutQuad,
+      curve: Curves.linearToEaseOut,
     );
 
-    didUpdateWidget(widget);
-  }
+    _previewData = widget.linkPreviewData;
 
-  Widget _animated(Widget child) => SizeTransition(
-        axis: Axis.vertical,
-        axisAlignment: -1,
-        sizeFactor: _animation,
-        child: child,
-      );
-
-  Widget _bodyWidget(PreviewData data, double width) => Stack(
-      alignment: AlignmentDirectional.bottomStart,
-      children: <Widget>[
-        if (data.image?.url != null)
-          _imageWidget(data.image!.url, width),
-        if (data.title != null) 
-        _titleWidget(data.title!),            
-      ],
-    );
-
-  Widget _containerWidget({
-    required bool animate,
-    bool withPadding = false,
-    Widget? child,
-    String? linkUrl,
-  }) {
-
-    final shouldAnimate = widget.enableAnimation == true && animate;
-
-    return InkWell(
-      onTap: () => linkUrl != null ? _onOpen(linkUrl) : null,
-      child: Container(
-        
-        constraints: BoxConstraints(maxWidth: widget.width),
-       // padding: withPadding ? padding : null,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (widget.header != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Text(
-                      widget.header!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: widget.headerStyle,
-                    ),
-                  ),
-                if (withPadding && child != null)
-                  shouldAnimate ? _animated(child) : child,
-              ],
-            ),
-            if (!withPadding && child != null)
-              shouldAnimate ? _animated(child) : child,
-          ],
-        ),
-      ),
-    );
-  }
-
-  /*Widget _descriptionWidget(String description) => Container(
-        margin: const EdgeInsets.only(top: 8),
-        child: Text(
-          description,
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-          style: widget.metadataTextStyle,
-        ),
-      );*/
-
-  Future<PreviewData> _fetchData(String text) async {
-    setState(() {
-      isFetchingPreviewData = true;
-    });
-
-    final previewData = await getPreviewData(
-      text,
-      proxy: widget.corsProxy,
-      requestTimeout: widget.requestTimeout,
-      userAgent: widget.userAgent,
-    );
-    await _handlePreviewDataFetched(previewData);
-    return previewData;
-  }
-
-  Future<void> _handlePreviewDataFetched(PreviewData previewData) async {
-    await Future.delayed(
-      widget.animationDuration ?? const Duration(milliseconds: 300),
-    );
-
-    if (mounted) {
-      widget.onPreviewDataFetched(previewData);
-      setState(() {
-        isFetchingPreviewData = false;
-      });
-    }
-  }
-
-  bool _hasData(PreviewData? previewData) =>
-      previewData?.title != null ||
-      previewData?.description != null ||
-      previewData?.image?.url != null;
-
-  Widget _imageWidget(String imageUrl, double width) =>
-      Container(
-        constraints: BoxConstraints(
-          maxHeight: width,
-          minHeight: 200
-        ),
-        width: width,
-        child: CachedNetworkImage(
-                imageUrl: imageUrl,
-                fit: BoxFit.contain,
-              ),
-      );
-
-  Future<void> _onOpen(String url) async {
-    if (widget.onLinkPressed != null) {
-      widget.onLinkPressed!(url);
+    if (_previewData != null) {
+      _controller.value = 1.0;
     } else {
-      final uri = Uri.parse(url);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
+      _fetchData();
     }
-  }
-
-  Widget _titleWidget(String title) {
-    final style = widget.metadataTitleStyle ??
-        const TextStyle(
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        );
-
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Color.fromARGB(189, 69, 69, 69),
-          borderRadius: BorderRadius.all(Radius.circular(5)),
-        ),
-      
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: style,
-          ),
-        ),
-      ),
-    );
   }
 
   @override
   void didUpdateWidget(covariant LinkPreview oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (!isFetchingPreviewData && widget.previewData == null) {
-      _fetchData(widget.text);
+    if (widget.text != oldWidget.text && widget.linkPreviewData == null) {
+      _fetchData();
     }
 
-    if (widget.previewData != null && oldWidget.previewData == null) {
+    if (widget.linkPreviewData != null &&
+        widget.linkPreviewData != _previewData) {
       setState(() {
-        shouldAnimate = true;
+        _previewData = widget.linkPreviewData;
       });
-      _controller.reset();
-      _controller.forward();
-    } else if (widget.previewData != null) {
-      setState(() {
-        shouldAnimate = false;
-      });
+      if (widget.enableAnimation) {
+        _controller.forward(from: 0);
+      } else {
+        _controller.value = 1.0;
+      }
     }
   }
 
@@ -318,30 +204,287 @@ class _LinkPreviewState extends State<LinkPreview>
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final previewData = widget.previewData;
+  Future<void> _fetchData() async {
+    setState(() {
+      _previewData = null;
+    });
+    _controller.reset();
 
-    if (previewData != null && _hasData(previewData)) {
-      if (widget.previewBuilder != null) {
-        return widget.previewBuilder!(context, previewData);
+    final value = await getLinkPreviewData(
+      widget.text,
+      proxy: widget.corsProxy,
+      headers: widget.headers,
+      requestTimeout: widget.requestTimeout,
+      userAgent: widget.userAgent,
+    );
+
+    if (!mounted) return;
+
+    if (value != null) {
+      widget.onLinkPreviewDataFetched(value);
+      setState(() {
+        _previewData = value;
+      });
+      if (widget.enableAnimation) {
+        await _controller.forward();
       } else {
-        final aspectRatio = widget.previewData!.image == null
-            ? null
-            : widget.previewData!.image!.width /
-                widget.previewData!.image!.height;
-
-        final width = aspectRatio == 1 ? widget.width : widget.width - 32;
-
-        return _containerWidget(
-          linkUrl: previewData.link,
-          animate: shouldAnimate,
-          child: _bodyWidget(previewData, width),
-          withPadding: aspectRatio == 1,
-        );
+        _controller.value = 1.0;
       }
-    } else {
-      return _containerWidget(animate: false, linkUrl: previewData?.link);
     }
   }
+
+  double _calculateTextWidth(String text, TextStyle style) {
+    final textPainter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      maxLines: 1,
+      textDirection: TextDirection.ltr,
+    )..layout();
+    return textPainter.size.width;
+  }
+
+  Widget _buildPreviewLayout(
+    BuildContext context,
+    BoxConstraints constraints,
+    LinkPreviewData previewData,
+  ) {
+    final defaultTextStyle = DefaultTextStyle.of(context).style;
+    final effectiveTitleTextStyle =
+        widget.titleTextStyle ??
+        defaultTextStyle.copyWith(fontWeight: FontWeight.bold);
+    final effectiveDescriptionTextStyle =
+        widget.descriptionTextStyle ?? defaultTextStyle;
+
+    final parentWidth = widget.parentContent == null
+        ? 0.0
+        : _calculateTextWidth(widget.parentContent!, defaultTextStyle);
+
+    final titleWidth = !previewData.hasTitle(hide: widget.hideTitle)
+        ? 0.0
+        : _calculateTextWidth(previewData.title!, effectiveTitleTextStyle);
+
+    final descriptionWidth =
+        !previewData.hasDescription(hide: widget.hideDescription)
+        ? 0.0
+        : _calculateTextWidth(
+            previewData.description!,
+            effectiveDescriptionTextStyle,
+          );
+
+    final hasText =
+        previewData.hasTitle(hide: widget.hideTitle) ||
+        previewData.hasDescription(hide: widget.hideDescription);
+
+    final naturalContentWidth = max(titleWidth, descriptionWidth);
+
+    final isNotImageOnly = hasText;
+    final useSideImageLayout =
+        widget.forcedLayout == LinkPreviewImagePosition.side ||
+        (widget.forcedLayout != LinkPreviewImagePosition.bottom &&
+            previewData.isSquareImage &&
+            isNotImageOnly);
+
+    final imageWidth = useSideImageLayout
+        ? widget.squareImageSize + widget.gap
+        : 0.0;
+    final textMaxWidth = min(
+      widget.maxWidth,
+      constraints.maxWidth - imageWidth,
+    ).clamp(0.0, double.infinity);
+
+    final finalWidth = max(
+      parentWidth,
+      min(naturalContentWidth, textMaxWidth),
+    ).clamp(widget.minWidth, double.infinity).clamp(0.0, constraints.maxWidth);
+
+    Widget? squareImage;
+    Widget? rectangleImage;
+
+    final canShowImage = previewData.hasImage(hide: widget.hideImage);
+
+    if (canShowImage) {
+      final image = widget.imageBuilder != null
+          ? widget.imageBuilder!(previewData.image!.url)
+          : Image.network(
+              previewData.image!.url,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) =>
+                  const SizedBox.shrink(),
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return const SizedBox.shrink();
+              },
+            );
+      if (useSideImageLayout) {
+        squareImage = ClipRRect(
+          borderRadius: BorderRadius.circular(widget.borderRadius),
+          child: SizedBox(
+            width: widget.squareImageSize,
+            height: widget.squareImageSize,
+            child: image,
+          ),
+        );
+      } else {
+        rectangleImage = Padding(
+          padding: EdgeInsets.only(top: hasText ? widget.gap : 0),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(widget.borderRadius),
+            child: AspectRatio(
+              aspectRatio: previewData.image!.width / previewData.image!.height,
+              child: image,
+            ),
+          ),
+        );
+      }
+    }
+
+    final textOnlyBlock = hasText
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (previewData.hasTitle(hide: widget.hideTitle))
+                Text(
+                  previewData.title!,
+                  style: effectiveTitleTextStyle,
+                  maxLines: widget.maxTitleLines,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              if (previewData.hasDescription(hide: widget.hideDescription))
+                Text(
+                  previewData.description!,
+                  style: effectiveDescriptionTextStyle,
+                  maxLines: widget.maxDescriptionLines,
+                  overflow: TextOverflow.ellipsis,
+                ),
+            ],
+          )
+        : const SizedBox.shrink();
+
+    final mainContentBlock = squareImage != null
+        ? Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Flexible(child: textOnlyBlock),
+              if (hasText) SizedBox(width: widget.gap),
+              squareImage,
+            ],
+          )
+        : textOnlyBlock;
+
+    return SizedBox(
+      width: finalWidth,
+      child: Stack(
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color:
+                  widget.backgroundColor ?? Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(widget.borderRadius),
+            ),
+            child: Padding(
+              padding: widget.insidePadding,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  mainContentBlock,
+                  if (rectangleImage != null) rectangleImage,
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: Container(
+              width: widget.sideBorderWidth,
+              decoration: BoxDecoration(
+                color:
+                    widget.sideBorderColor ??
+                    Colors.white.withValues(alpha: 0.8),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(widget.borderRadius),
+                  bottomLeft: Radius.circular(widget.borderRadius),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _onTap(String url) async {
+    if (widget.onTap != null) {
+      widget.onTap!(url);
+    } else {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.platformDefault);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = _previewData;
+    if (data == null ||
+        (!data.hasTitle(hide: widget.hideTitle) &&
+            !data.hasDescription(hide: widget.hideDescription) &&
+            !data.hasImage(hide: widget.hideImage))) {
+      return const SizedBox.shrink();
+    }
+
+    return GestureDetector(
+      onTap: () => _onTap(data.link),
+      child: Padding(
+        padding: widget.outsidePadding,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final content = _buildPreviewLayout(
+              context,
+              constraints,
+              _previewData!,
+            );
+
+            if (!widget.enableAnimation) return content;
+
+            return FadeTransition(
+              opacity: _animation,
+              child: SizeTransition(
+                axisAlignment: -1.0,
+                sizeFactor: _animation,
+                fixedCrossAxisSizeFactor: 1,
+                child: content,
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// The position of the image in the link preview.
+enum LinkPreviewImagePosition {
+  /// The image is displayed at the bottom of the preview.
+  bottom,
+
+  /// The image is displayed on the side of the preview.
+  side,
+}
+
+extension on LinkPreviewData {
+  bool hasTitle({bool hide = false}) =>
+      !hide && title != null && title!.isNotEmpty;
+  bool hasDescription({bool hide = false}) =>
+      !hide && description != null && description!.isNotEmpty;
+  bool hasImage({bool hide = false}) {
+    if (hide) return false;
+    final i = image;
+    if (i == null) return false;
+    return i.width > 0 && i.height > 0;
+  }
+
+  bool get isSquareImage => hasImage() && image!.width == image!.height;
 }
