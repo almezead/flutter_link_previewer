@@ -167,6 +167,8 @@ class _LinkPreviewState extends State<LinkPreview>
       parent: _controller,
       curve: Curves.linearToEaseOut,
     );
+    
+    _getWebseite();
 
     _previewData = widget.linkPreviewData;
 
@@ -175,6 +177,7 @@ class _LinkPreviewState extends State<LinkPreview>
     } else {
       _fetchData();
     }
+
   }
 
   @override
@@ -219,12 +222,6 @@ var _website = '';
       requestTimeout: widget.requestTimeout,
       userAgent: widget.userAgent,
     );
-//https://github.com/flyerhq/flutter_chat_ui
-    _website = widget.text.replaceAll('https://', '');
-    _website = _website.replaceAll('http://', '');
-    _website = _website.replaceAll('www.', '');
-    final websitePaths = _website.split('/');
-    _website = websitePaths.isNotEmpty ? websitePaths.first : _website;
 
     if (!mounted) return;
 
@@ -239,6 +236,14 @@ var _website = '';
         _controller.value = 1.0;
       }
     }
+  }
+
+  void _getWebseite() {
+    _website = widget.text.replaceAll('https://', '');
+    _website = _website.replaceAll('http://', '');
+    _website = _website.replaceAll('www.', '');
+    final websitePaths = _website.split('/');
+    _website = websitePaths.isNotEmpty ? websitePaths.first : _website;
   }
 
   double _calculateTextWidth(String text, TextStyle style) {
