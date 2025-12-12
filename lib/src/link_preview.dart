@@ -204,6 +204,8 @@ class _LinkPreviewState extends State<LinkPreview>
     super.dispose();
   }
 
+var _website = '';
+
   Future<void> _fetchData() async {
     setState(() {
       _previewData = null;
@@ -217,6 +219,12 @@ class _LinkPreviewState extends State<LinkPreview>
       requestTimeout: widget.requestTimeout,
       userAgent: widget.userAgent,
     );
+//https://github.com/flyerhq/flutter_chat_ui
+    _website = widget.text.replaceAll('https://', '');
+    _website = _website.replaceAll('http://', '');
+    _website = _website.replaceAll('www.', '');
+    final websitePaths = _website.split('/');
+    _website = websitePaths.isNotEmpty ? websitePaths.first : _website;
 
     if (!mounted) return;
 
@@ -248,11 +256,8 @@ class _LinkPreviewState extends State<LinkPreview>
     LinkPreviewData previewData,
   ) {
     final defaultTextStyle = DefaultTextStyle.of(context).style;
-    final effectiveTitleTextStyle =
-        widget.titleTextStyle ??
-        defaultTextStyle.copyWith(fontWeight: FontWeight.bold);
-    final effectiveDescriptionTextStyle =
-        widget.descriptionTextStyle ?? defaultTextStyle;
+    final effectiveTitleTextStyle = widget.titleTextStyle ?? defaultTextStyle.copyWith(fontWeight: FontWeight.bold);
+    final effectiveDescriptionTextStyle = widget.descriptionTextStyle ?? defaultTextStyle;
 
     final parentWidth = widget.parentContent == null
         ? 0.0
@@ -270,22 +275,15 @@ class _LinkPreviewState extends State<LinkPreview>
             effectiveDescriptionTextStyle,
           );
 
-    final hasText =
-        previewData.hasTitle(hide: widget.hideTitle) ||
-        previewData.hasDescription(hide: widget.hideDescription);
+    final hasText = previewData.hasTitle(hide: widget.hideTitle) || previewData.hasDescription(hide: widget.hideDescription);
 
     final naturalContentWidth = max(titleWidth, descriptionWidth);
 
     final isNotImageOnly = hasText;
-    final useSideImageLayout =
-        widget.forcedLayout == LinkPreviewImagePosition.side ||
-        (widget.forcedLayout != LinkPreviewImagePosition.bottom &&
-            previewData.isSquareImage &&
-            isNotImageOnly);
+    final useSideImageLayout = widget.forcedLayout == LinkPreviewImagePosition.side || (widget.forcedLayout != LinkPreviewImagePosition.bottom &&
+            previewData.isSquareImage && isNotImageOnly);
 
-    final imageWidth = useSideImageLayout
-        ? widget.squareImageSize + widget.gap
-        : 0.0;
+    final imageWidth = useSideImageLayout ? widget.squareImageSize + widget.gap : 0.0;
     final textMaxWidth = min(
       widget.maxWidth,
       constraints.maxWidth - imageWidth,
@@ -325,9 +323,9 @@ class _LinkPreviewState extends State<LinkPreview>
         );
       } else {
         rectangleImage = Padding(
-          padding: EdgeInsets.only(top: hasText ? widget.gap : 0),
+          padding: EdgeInsets.only(top: 0),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(widget.borderRadius),
+            borderRadius: BorderRadius.circular(15),
             child: AspectRatio(
               aspectRatio: previewData.image!.width / previewData.image!.height,
               child: image,
@@ -341,7 +339,7 @@ class _LinkPreviewState extends State<LinkPreview>
         ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (previewData.hasTitle(hide: widget.hideTitle))
+              if (rectangleImage == null && previewData.hasTitle(hide: widget.hideTitle))
                 Text(
                   previewData.title!,
                   style: effectiveTitleTextStyle,
@@ -349,12 +347,25 @@ class _LinkPreviewState extends State<LinkPreview>
                   overflow: TextOverflow.ellipsis,
                 ),
               if (previewData.hasDescription(hide: widget.hideDescription))
-                Text(
-                  previewData.description!,
-                  style: effectiveDescriptionTextStyle,
-                  maxLines: widget.maxDescriptionLines,
-                  overflow: TextOverflow.ellipsis,
+                Padding(
+                  padding: EdgeInsetsGeometry.symmetric(vertical: 1.5, horizontal: 7),
+                  child: Text(
+                    previewData.description!,
+                    style: rectangleImage == null ? effectiveDescriptionTextStyle : TextStyle(color: Colors.white),
+                    maxLines: rectangleImage == null ? widget.maxDescriptionLines : 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
+                if (rectangleImage == null)
+                  Padding(
+                    padding: EdgeInsetsGeometry.symmetric(vertical: 3, horizontal: 10),
+                    child: Text(
+                      '$_website',
+                      style: TextStyle(color: Colors.black38),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
             ],
           )
         : const SizedBox.shrink();
@@ -371,42 +382,43 @@ class _LinkPreviewState extends State<LinkPreview>
         : textOnlyBlock;
 
     return SizedBox(
-      width: finalWidth,
-      child: Stack(
+      //width: finalWidth,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DecoratedBox(
             decoration: BoxDecoration(
-              color:
-                  widget.backgroundColor ?? Colors.white.withValues(alpha: 0.2),
+              color: rectangleImage != null ? Colors.transparent : Colors.black87.withValues(alpha: 0.02),
               borderRadius: BorderRadius.circular(widget.borderRadius),
             ),
             child: Padding(
-              padding: widget.insidePadding,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+              padding: EdgeInsetsGeometry.all(0),
+              child: Stack(
+                alignment: AlignmentDirectional.bottomStart,
                 children: [
-                  mainContentBlock,
                   if (rectangleImage != null) rectangleImage,
+                  Padding(
+                    padding: EdgeInsetsGeometry.all(10),
+                    child: Container(
+                      child: mainContentBlock,
+                      decoration: BoxDecoration(
+                        color: rectangleImage == null ? Colors.transparent : Colors.black12.withValues(alpha: 0.7),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                  ),                  
                 ],
               ),
             ),
           ),
-          Positioned(
-            left: 0,
-            top: 0,
-            bottom: 0,
-            child: Container(
-              width: widget.sideBorderWidth,
-              decoration: BoxDecoration(
-                color:
-                    widget.sideBorderColor ??
-                    Colors.white.withValues(alpha: 0.8),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(widget.borderRadius),
-                  bottomLeft: Radius.circular(widget.borderRadius),
-                ),
-              ),
+          if (rectangleImage != null)
+          Padding(
+            padding: EdgeInsetsGeometry.symmetric(vertical: 3, horizontal: 10),
+            child: Text(
+              'From $_website',
+              style: TextStyle(color: Colors.black38),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -428,10 +440,7 @@ class _LinkPreviewState extends State<LinkPreview>
   @override
   Widget build(BuildContext context) {
     final data = _previewData;
-    if (data == null ||
-        (!data.hasTitle(hide: widget.hideTitle) &&
-            !data.hasDescription(hide: widget.hideDescription) &&
-            !data.hasImage(hide: widget.hideImage))) {
+    if (data == null || (!data.hasTitle(hide: widget.hideTitle) && !data.hasDescription(hide: widget.hideDescription) && !data.hasImage(hide: widget.hideImage))) {
       return const SizedBox.shrink();
     }
 

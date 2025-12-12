@@ -30,8 +30,9 @@ class _MyHomePageState extends State<MyHomePage> {
   LinkPreviewData? _linkPreviewData;
   List<String> get urls => const [
         'github.com/flyerhq',
-        'https://u24.gov.ua',
-        'https://twitter.com/SpaceX/status/1564975288655630338',
+        'https://www.istockphoto.com/photo/cosmos-blooming-in-a-park-gm2196545732-614567538?irclickid=XwuUhSQbMxycUc5xqR0Ec2UUUkpTzzTxn3clzo0&irgwc=1&afsrc=1&cid=IS&utm_medium=affiliate&utm_source=picjumbo%20%2F%20Viktor%20Hanacek&clickid=XwuUhSQbMxycUc5xqR0Ec2UUUkpTzzTxn3clzo0&utm_term=&utm_campaign=&utm_content=1852840&irpid=1982588',
+        'https://www.youtube.com/',
+        'https://www.meg-snow.com/cheeseclub/knowledge/jiten/parmigiano/',
         'github.com/flyerhq',
         'https://u24.gov.ua',
         'https://twitter.com/SpaceX/status/1564975288655630338',
@@ -57,7 +58,7 @@ class _MyHomePageState extends State<MyHomePage> {
               borderRadius: BorderRadius.all(
                 Radius.circular(20),
               ),
-              color: Color(0xfff7f7f8),
+              //color: Color(0xfff7f7f8),
             ),
             child: ClipRRect(
               borderRadius: const BorderRadius.all(
@@ -67,7 +68,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 // The text that should be parsed to find the first URL
                 text:  urls[index],
                 // Pass the cached preview data to avoid re-fetching
-                linkPreviewData: _linkPreviewData,
+                //linkPreviewData: _linkPreviewData,
                 // Callback to store the fetched preview data
                 onLinkPreviewDataFetched: (data) {
                   setState(() {

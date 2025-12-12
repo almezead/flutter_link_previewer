@@ -1,3 +1,31 @@
+## 4.2.0
+
+ - **FEAT**: update deps - requires min dart 3.8 and flutter 3.32 ([#871](https://github.com/flyerhq/flutter_chat_ui/issues/871)). ([588b34bd](https://github.com/flyerhq/flutter_chat_ui/commit/588b34bd398900c8f25ee69c574d1e35391af1d1))
+
+## 4.1.2
+
+ - Update a dependency to the latest release.
+
+## 4.1.1
+
+ - **FIX**: update LICENSE. ([209a1292](https://github.com/flyerhq/flutter_chat_ui/commit/209a129297ebe7fd202e41273c9c0ddd52b8b983))
+ - **FIX**: add example to the flutter_link_previewer. ([a307c9e9](https://github.com/flyerhq/flutter_chat_ui/commit/a307c9e9394a077fb87106c192c55c029ace17fd))
+
+## 4.1.0
+
+ - **FEAT**: support international domains. ([9626bc29](https://github.com/flyerhq/flutter_chat_ui/commit/9626bc292dd6254b155176994401271d86b23a53))
+
+## 4.0.0
+
+- **BREAKING CHANGE**: The **LinkPreview** widget has been completely rewritten for improved clarity and modern design.
+
+  - **Separation of Concerns**: The widget no longer manages or highlights links within parent text. It is now focused solely on rendering the link preview itself. This resolves previous design choices where the preview was coupled with unrelated text logic.
+  - **Modernized Default Style**: The default appearance has been updated to better match modern messenger apps, while retaining full customizability through parameters.
+  - **Parameter Renames**: To improve clarity and consistency, some parameters have been renamed:
+    - `onPreviewDataFetched` → `onLinkPreviewDataFetched`
+    - `previewData` → `linkPreviewData`
+  - **API Changes**: Most other parameters and internals have changed as part of the rewrite. Please review the updated source code to see the new customization options.
+
 ## 3.2.2
 
 - Update dependencies
