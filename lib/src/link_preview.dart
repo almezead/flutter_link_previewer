@@ -168,7 +168,7 @@ class _LinkPreviewState extends State<LinkPreview>
       curve: Curves.linearToEaseOut,
     );
     
-    _getWebseite();
+    _getWebsite();
 
     _previewData = widget.linkPreviewData;
 
@@ -207,11 +207,13 @@ class _LinkPreviewState extends State<LinkPreview>
     super.dispose();
   }
 
-var _website = '';
+  var _website = '';
+  var _isLoading = false;
 
   Future<void> _fetchData() async {
     setState(() {
       _previewData = null;
+      _isLoading = true;
     });
     _controller.reset();
 
@@ -236,9 +238,10 @@ var _website = '';
         _controller.value = 1.0;
       }
     }
+    _isLoading = false;
   }
 
-  void _getWebseite() {
+  void _getWebsite() {
     _website = widget.text.replaceAll('https://', '');
     _website = _website.replaceAll('http://', '');
     _website = _website.replaceAll('www.', '');
@@ -260,44 +263,45 @@ var _website = '';
     BoxConstraints constraints,
     LinkPreviewData previewData,
   ) {
+    
     final defaultTextStyle = DefaultTextStyle.of(context).style;
     final effectiveTitleTextStyle = widget.titleTextStyle ?? defaultTextStyle.copyWith(fontWeight: FontWeight.bold);
     final effectiveDescriptionTextStyle = widget.descriptionTextStyle ?? defaultTextStyle;
 
-    final parentWidth = widget.parentContent == null
+    /*final parentWidth = widget.parentContent == null
         ? 0.0
-        : _calculateTextWidth(widget.parentContent!, defaultTextStyle);
+        : _calculateTextWidth(widget.parentContent!, defaultTextStyle);*/
 
-    final titleWidth = !previewData.hasTitle(hide: widget.hideTitle)
+    /*final titleWidth = !previewData.hasTitle(hide: widget.hideTitle)
         ? 0.0
-        : _calculateTextWidth(previewData.title!, effectiveTitleTextStyle);
+        : _calculateTextWidth(previewData.title!, effectiveTitleTextStyle);*/
 
-    final descriptionWidth =
+    /*final descriptionWidth =
         !previewData.hasDescription(hide: widget.hideDescription)
         ? 0.0
         : _calculateTextWidth(
             previewData.description!,
             effectiveDescriptionTextStyle,
-          );
+          );*/
 
     final hasText = previewData.hasTitle(hide: widget.hideTitle) || previewData.hasDescription(hide: widget.hideDescription);
 
-    final naturalContentWidth = max(titleWidth, descriptionWidth);
+    //final naturalContentWidth = max(titleWidth, descriptionWidth);
 
     final isNotImageOnly = hasText;
     final useSideImageLayout = widget.forcedLayout == LinkPreviewImagePosition.side || (widget.forcedLayout != LinkPreviewImagePosition.bottom &&
             previewData.isSquareImage && isNotImageOnly);
 
-    final imageWidth = useSideImageLayout ? widget.squareImageSize + widget.gap : 0.0;
+   /* final imageWidth = useSideImageLayout ? widget.squareImageSize + widget.gap : 0.0;
     final textMaxWidth = min(
       widget.maxWidth,
       constraints.maxWidth - imageWidth,
-    ).clamp(0.0, double.infinity);
+    ).clamp(0.0, double.infinity);*/
 
-    final finalWidth = max(
+    /*final finalWidth = max(
       parentWidth,
       min(naturalContentWidth, textMaxWidth),
-    ).clamp(widget.minWidth, double.infinity).clamp(0.0, constraints.maxWidth);
+    ).clamp(widget.minWidth, double.infinity).clamp(0.0, constraints.maxWidth);*/
 
     Widget? squareImage;
     Widget? rectangleImage;
@@ -444,9 +448,23 @@ var _website = '';
 
   @override
   Widget build(BuildContext context) {
+    if (_previewData == null && _isLoading )
+      return Container(
+        child: Center(
+          child: Text('Fetching website data...'),
+        ),
+        height: 160,
+        decoration: BoxDecoration(
+          color: Colors.grey.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(6),
+        )
+      );
+    //if (!_isLoading && _previewData == null)
+    //   return error view 
+
     final data = _previewData;
     if (data == null || (!data.hasTitle(hide: widget.hideTitle) && !data.hasDescription(hide: widget.hideDescription) && !data.hasImage(hide: widget.hideImage))) {
-      return const SizedBox.shrink();
+      return const SizedBox(height: 160,);
     }
 
     return GestureDetector(
