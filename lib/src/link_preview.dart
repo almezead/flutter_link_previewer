@@ -260,7 +260,6 @@ class _LinkPreviewState extends State<LinkPreview>
 
   Widget _buildPreviewLayout(
     BuildContext context,
-    BoxConstraints constraints,
     LinkPreviewData previewData,
   ) {
     
@@ -464,34 +463,33 @@ class _LinkPreviewState extends State<LinkPreview>
 
     final data = _previewData;
     if (data == null || (!data.hasTitle(hide: widget.hideTitle) && !data.hasDescription(hide: widget.hideDescription) && !data.hasImage(hide: widget.hideImage))) {
-      return const SizedBox(height: 160,);
+      return const SizedBox(height: 160);
     }
 
     return GestureDetector(
       onTap: () => _onTap(data.link),
       child: Padding(
         padding: widget.outsidePadding,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final content = _buildPreviewLayout(
+        child: 
+
+            widget.enableAnimation == false ?  _buildPreviewLayout(
               context,
-              constraints,
               _previewData!,
-            );
+            )
 
-            if (!widget.enableAnimation) return content;
-
-            return FadeTransition(
+            : FadeTransition(
               opacity: _animation,
               child: SizeTransition(
                 axisAlignment: -1.0,
                 sizeFactor: _animation,
                 fixedCrossAxisSizeFactor: 1,
-                child: content,
+                child: _buildPreviewLayout(
+                  context,
+                  _previewData!,
+                ),
               ),
-            );
-          },
-        ),
+            )
+          
       ),
     );
   }

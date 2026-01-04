@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_chat_types/flutter_chat_types.dart';
 //import 'package:flutter_chat_types/flutter_chat_types.dart' show PreviewData;
 import 'package:flutter_link_previewer/flutter_link_previewer.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' show LinkPreviewData;
@@ -26,8 +27,8 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
- // Map<String, PreviewData> datas = {};
-  LinkPreviewData? _linkPreviewData;
+  Map<String, LinkPreviewData> datas = {};
+  //LinkPreviewData? _linkPreviewData;
   List<String> get urls => const [
         'github.com/flyerhq',
         'https://www.istockphoto.com/photo/cosmos-blooming-in-a-park-gm2196545732-614567538?irclickid=XwuUhSQbMxycUc5xqR0Ec2UUUkpTzzTxn3clzo0&irgwc=1&afsrc=1&cid=IS&utm_medium=affiliate&utm_source=picjumbo%20%2F%20Viktor%20Hanacek&clickid=XwuUhSQbMxycUc5xqR0Ec2UUUkpTzzTxn3clzo0&utm_term=&utm_campaign=&utm_content=1852840&irpid=1982588',
@@ -68,11 +69,11 @@ class _MyHomePageState extends State<MyHomePage> {
                 // The text that should be parsed to find the first URL
                 text:  urls[index],
                 // Pass the cached preview data to avoid re-fetching
-                //linkPreviewData: _linkPreviewData,
+                linkPreviewData:  datas[urls[index]],
                 // Callback to store the fetched preview data
                 onLinkPreviewDataFetched: (data) {
                   setState(() {
-                    _linkPreviewData = data;
+                    datas[urls[index]] = data;
                   });
                 },
                 // For a chat bubble, you would pass the message text here
