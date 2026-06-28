@@ -227,7 +227,7 @@ Future<LinkPreviewData?> getLinkPreviewData(
         .trim();
     if (textWithoutEmails.isEmpty) return null;
 
-    final urlRegexp = RegExp(regexLink, caseSensitive: false, unicode: true);
+    final urlRegexp = RegExp(regexLink, caseSensitive: false); // , unicode: true
     final matches = urlRegexp.allMatches(textWithoutEmails);
     if (matches.isEmpty) return null;
 
@@ -343,5 +343,7 @@ const regexEmail = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}';
 const regexImageContentType = r'image\/*';
 
 /// Regex to find all links in the text.
-const regexLink =
-    r'((http|ftp|https):\/\/)?(([\p{L}\p{N}_-]+)(?:(?:\.([\p{L}\p{N}_-]*[\p{L}_][\p{L}\p{N}_-]*))+))([\p{L}\p{N}.,@?^=%&:/~+#-]*[\p{L}\p{N}@?^=%&/~+#-])?[^\.\s]';
+const regexLink =  r'(http|https?|ftp):\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/=]*)';
+
+   // r'((http|ftp|https):\/\/)?(([\p{L}\p{N}_-]+)(?:(?:\.([\p{L}\p{N}_-]*[\p{L}_][\p{L}\p{N}_-]*))+))([\p{L}\p{N}.,@?^=%&:/~+#-]*[\p{L}\p{N}@?^=%&/~+#-])?[^\.\s]';
+//const regexLink2 = r"(https?|ftp|file|#)://[-A-Za-z0-9+&@#/%?=~_|!:,.;\(\)]+[-A-Za-z0-9+&@#/%=~_|\(\)]*[\r\n]*";
